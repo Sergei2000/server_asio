@@ -4,6 +4,7 @@
 #include <iostream>
 #include<boost/asio.hpp>
 #include <boost/thread/thread.hpp>
+#include <boost/thread/recursive_mutex.hpp>
 #include <system_error>
 #include <unistd.h>
 
@@ -11,10 +12,12 @@ static const int buf_size =500;
 static boost::thread_group threads;
 using namespace boost::asio;
 static io_service service;
+static ip::tcp::acceptor acceptor{service, ip::tcp::endpoint{ip::tcp::v4(), 8001}};
 typedef boost::shared_ptr<ip::tcp::socket> socket_ptr;
 static std::vector<socket_ptr> sockets;
-static boost::mutex mutex,mutex1,mutex_socket,mutex_clients;
-ip::tcp::acceptor acceptor(service, ip::tcp::endpoint(ip::tcp::v4(),8001));
+static boost::mutex mutex1,mutex_socket,mutex_clients;
+static boost::recursive_mutex mutex;
+static std::vector<int> num_close;
 void clear_buf(char * buf,int size)
 {
     for (int i=0;i<size;++i)
@@ -25,127 +28,86 @@ void clear_buf(char * buf,int size)
 
 struct client
 {
-    socket_ptr _sock ;
-    std::string _name;
-    boost::thread::id pid=boost::this_thread::get_id();
-    std::string _received_message;
-    bool _status = true ;
-    client(){}
-    client(const std::string& name,socket_ptr &&sock):_name(name),
-    _sock(std::move(sock))
+    ip::tcp::socket _sock{service};
+    bool _status=true;
+    void write (std:: string msg)
     {
-        for (int i=0;i<5;++i)
+        //if (_sock.available())
+        _sock.write_some(boost::asio::buffer(msg,7));
+    }
+    std::string _reply;
+    void read_str()
+    {
+        if (_sock.available())
         {
-            send_message(_name);
-            receive_message();
-            send_message("krut\n");
-            _name=_received_message;
-            std::cout<<_received_message<<std::endl;
+            char buf[200] ;
+            int bytes=_sock.read_some(boost::asio::buffer(buf,200));
+            for (int i=0;i<bytes;++i)
+            {
+                _reply[i]=std::move(buf[i]);
+            }
         }
+
+    }
+    void ping()
+    {
+        write("ping_ok");
     }
 
-
-    int send_message(std::string msg)
-    {
-        int length=msg.size();
-        _sock->write_some(boost::asio::buffer(&length,4));
-        _sock->write_some(boost::asio::buffer(msg,msg.size()));
-    }
-
-    int receive_message()
-    {
-        char buff [buf_size];
-        int length=0;
-        clear_buf(buff,buf_size);
-        _sock->read_some(buffer(&length,4));
-        int count =_sock->read_some(buffer(buff,length));
-        std::string tmp(buff,buf_size);
-        _received_message=tmp.substr(0,tmp.find('/0'));
-        return count;
-    }
-    bool is_connected()
-    {
-        return _status;
-    }
-    void client_out()
-    {
-        _sock->close();
-        _name.pop_back();
-        _status=false;
-        std::cout<<std::endl<<"client :"+_name<<" is out "<<boost::this_thread::get_id()<<std::endl;
-    }
-    void send_list()
-    {
-    }
-    ~client()
-    {
-        client_out();
-    }
+    ~client(){_sock.close();}
 };
 
-static std::vector<client> clients;
 
-int check_user(socket_ptr& sock,std::string& str)
-{
-    char buff [buf_size];
-    int count_of_bytes=0;
-    clear_buf(buff,buf_size);
-    sock->read_some(boost::asio::buffer(&count_of_bytes,4));
-    sock->read_some(boost::asio::buffer(buff,count_of_bytes));
-    std::string msg(buff,count_of_bytes);
-    str=msg;
-    if(msg.find('\n') == std::string::npos)
-    {
-        msg="incorrect format of letter add \\n";
-        count_of_bytes=msg.size();
-        sock->write_some(boost::asio::buffer(&count_of_bytes,4));
-        sock->write_some(boost::asio::buffer(msg,count_of_bytes));
-        return 1;
-    }
-    else
-    {
-        msg="correct format\n";
-        count_of_bytes=msg.size();
-        sock->write_some(boost::asio::buffer(&count_of_bytes,4));
-        sock->write_some(boost::asio::buffer(msg,count_of_bytes));
-        return 0;
-    }
-}
+typedef boost::shared_ptr<client> client_ptr;
+static std::vector<client_ptr> clients;
+boost::recursive_mutex cs;
 
 
 void communication_with_server()
 {
+    int i=0;
+    while (true)
+    {
+        i=0;
+        boost::this_thread::sleep( boost::posix_time::millisec(1));
+        boost::recursive_mutex::scoped_lock lk(cs);
+        if (clients.size()<2) continue;
+        for (auto &a:clients)
+        {
+            a->ping();
+            a->read_str();
+            a->_status=false;
+            std::cout<<a->_reply;
+//            if (!a->_status)
+//            {
+//               num_close.push_back(i);
+//            }
+//            ++i;
+        }
 
-         while (!clients.size())
-         {
-
-         }
-
-         while(true)
-         {
-             for (auto &a : clients)
-             {
-                 if (a.is_connected()){}
-                     else{}
-             }
-         }
-
+//        for (auto &a:num_close)
+//        {
+//            clients[a]->_sock.close();
+//        }
+//        clients.erase(clients.begin(),clients.end());
+    }
 }
 
 void access_func()
 {
+
     while(true)
     {
-        socket_ptr sock(new ip::tcp::socket(service));
-        acceptor.accept(*sock);
-        mutex_clients.lock();
-        clients.push_back(client("padavan",std::move(sock)));
-        mutex_clients.unlock();
+        client_ptr one(new client);
+        acceptor.accept(one->_sock);
+        boost::recursive_mutex::scoped_lock lk(cs);
+        clients.push_back(one);
     }
 }
 
 int main(int argc, char* argv[])
 {
+
     boost::thread first(access_func);
     boost::thread second(communication_with_server);
     first.join();
