@@ -32,7 +32,6 @@ struct client
     bool _status=true;
     void write (std:: string msg)
     {
-        //if (_sock.available())
         _sock.write_some(boost::asio::buffer(msg,7));
     }
     std::string _reply;
@@ -53,6 +52,31 @@ struct client
     {
         write("ping_ok");
     }
+    void communicate()
+    {
+        try
+        {
+            ping();
+            read_str();
+            std::cout<< _reply;
+        }
+        catch ( boost::system::system_error&)
+        {
+            if (_sock.available())
+            {
+                _sock.close();
+            }
+            _status=false;
+            std::cout<<"no client";
+
+        }
+
+
+    }
+    bool disconnected()
+    {
+        return !_status;
+    }
 
     ~client(){_sock.close();}
 };
@@ -65,31 +89,26 @@ boost::recursive_mutex cs;
 
 void communication_with_server()
 {
-    int i=0;
+    std::vector<client>::iterator it;
     while (true)
     {
-        i=0;
         boost::this_thread::sleep( boost::posix_time::millisec(1));
         boost::recursive_mutex::scoped_lock lk(cs);
-        if (clients.size()<2) continue;
-        for (auto &a:clients)
-        {
-            a->ping();
-            a->read_str();
-            a->_status=false;
-            std::cout<<a->_reply;
-//            if (!a->_status)
-//            {
-//               num_close.push_back(i);
-//            }
-//            ++i;
-        }
 
-//        for (auto &a:num_close)
-//        {
-//            clients[a]->_sock.close();
-//        }
-//        clients.erase(clients.begin(),clients.end());
+        for (auto &a: clients)
+        {
+            a->communicate();
+        }
+        for (auto i=clients.begin();i!=clients.end();)
+        {
+            if (!(i->get()->_status))
+            {
+                i=clients.erase(i);
+            }
+            else{
+                ++i;
+            }
+        }
     }
 }
 
