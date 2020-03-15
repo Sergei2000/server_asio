@@ -20,7 +20,7 @@ static std::vector <socket_ptr> sockets;
 static boost::mutex mutex1, mutex_socket, mutex_clients;
 static boost::recursive_mutex mutex;
 static std::vector<int> num_close;
-static std::string client_list = "client list: ";
+std::string client_list = "client list: ";
 boost::recursive_mutex cs, ds;
 
 
