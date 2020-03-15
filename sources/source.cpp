@@ -9,9 +9,9 @@
 #include <system_error>
 
 
-static const int buf_size =500;
+static const int buf_size = 500;
+
 static boost::thread_group threads;
-using namespace boost::asio;
 static io_service service;
 static ip::tcp::acceptor acceptor{service, ip::tcp::endpoint{ip::tcp::v4(), 8001}};
 typedef boost::shared_ptr<ip::tcp::socket> socket_ptr;
