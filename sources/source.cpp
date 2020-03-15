@@ -10,11 +10,11 @@
 
 
 static const int buf_size = 500;
-using boost::asio::ip;
 static boost::thread_group threads;
-static io_service service;
-static ip::tcp::acceptor
-        acceptor{service, ip::tcp::endpoint{ip::tcp::v4(), 8001}};
+static boost::asio::io_service service;
+static boost::asio::ip::tcp::acceptor
+acceptor{service, boost::asio::ip::tcp::endpoint
+{ip::tcp::v4(), 8001}};
 typedef boost::shared_ptr <ip::tcp::socket> socket_ptr;
 static std::vector <socket_ptr> sockets;
 static boost::mutex mutex1, mutex_socket, mutex_clients;
@@ -25,7 +25,7 @@ boost::recursive_mutex cs, ds;
 
 
 struct client {
-    ip::tcp::socket _sock{service};
+    boost::asio::ip::tcp::socket _sock{service};
     bool _status = true;
     bool _initial = true;
     char buf[200];
