@@ -9,7 +9,6 @@
 #include <system_error>
 
 
-static const int buf_size = 500;
 static boost::thread_group threads;
 static boost::asio::io_service service;
 static boost::asio::ip::tcp::acceptor
