@@ -51,7 +51,7 @@ struct client {
             _sock.read_some(boost::asio::buffer(&counter, 4));
             _sock.read_some(boost::asio::buffer(buf, counter));
             _reply = std::string(buf);
-            _reply = _reply.substr(0, (int)_reply.find('0'));
+            _reply = _reply.substr(0, static_cast<int>_reply.find('0'));
             //std::cout<< _reply;
             clear_buf(buf, 40);
         }
