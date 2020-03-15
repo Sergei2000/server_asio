@@ -14,13 +14,13 @@ static boost::thread_group threads;
 static boost::asio::io_service service;
 static boost::asio::ip::tcp::acceptor
 acceptor{service, boost::asio::ip::tcp::endpoint
-{ip::tcp::v4(), 8001}};
-typedef boost::shared_ptr <ip::tcp::socket> socket_ptr;
+{boost::asio::ip::tcp::v4(), 8001}};
+typedef boost::shared_ptr <boost::asio::ip::tcp::socket>
+socket_ptr;
 static std::vector <socket_ptr> sockets;
 static boost::mutex mutex1, mutex_socket, mutex_clients;
 static boost::recursive_mutex mutex;
 static std::vector<int> num_close;
-//std::string client_list = "client list: ";
 boost::recursive_mutex cs, ds;
 
 
@@ -30,9 +30,9 @@ struct client {
     bool _initial = true;
     char buf[200];
     std::string client_list = "client list: ";
-    void clear_buf(char *buf, int size) {
+    void clear_buf(char *buff, int size) {
         for (int i = 0; i < size; ++i) {
-            buf[i] = '0';
+            buff[i] = '0';
         }
     }
 
@@ -51,8 +51,7 @@ struct client {
             _sock.read_some(boost::asio::buffer(&counter, 4));
             _sock.read_some(boost::asio::buffer(buf, counter));
             _reply = std::string(buf);
-            _reply = _reply.substr(0, static_cast<int>_reply.find('0'));
-            //std::cout<< _reply;
+            _reply = _reply.substr(0, static_cast<int>(_reply.find('0')));
             clear_buf(buf, 40);
         }
     }
