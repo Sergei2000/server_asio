@@ -55,7 +55,6 @@ struct client {
             //std::cout<< _reply;
             clear_buf(buf, 40);
         }
-
     }
 
     void ping() {
@@ -92,7 +91,6 @@ struct client {
                     boost::recursive_mutex::scoped_lock lk(ds);
                     write(client_list);
                 }
-
             }
             alarm(0);
         }
@@ -126,7 +124,6 @@ void communication_with_server() {
     while (true) {
         boost::this_thread::sleep(boost::posix_time::millisec(1));
         boost::recursive_mutex::scoped_lock lk(cs);
-
         for (auto &a: clients) {
             a->communicate();
         }
