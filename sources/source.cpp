@@ -32,7 +32,7 @@ struct client {
     std::string client_list = "client list: ";
     void clear_buf(char *buf, int size) {
         for (int i = 0; i < size; ++i) {
-            buf[i] = '/0';
+            buf[i] = '0';
         }
     }
 
@@ -51,7 +51,7 @@ struct client {
             _sock.read_some(boost::asio::buffer(&counter, 4));
             _sock.read_some(boost::asio::buffer(buf, counter));
             _reply = std::string(buf);
-            _reply = _reply.substr(0, _reply.find('/0'));
+            _reply = _reply.substr(0, (int)_reply.find('0'));
             //std::cout<< _reply;
             clear_buf(buf, 40);
         }
@@ -82,12 +82,10 @@ struct client {
             }
             clear_buf(buf, 40);
             read_str();
-            // std::cout<<_reply;
             if (_reply == "ping\n") {
                 ping();
             } else {
                 if (_reply.find("client list\n") != std::string::npos) {
-                    //std::cout<<_reply<<std::endl;
                     boost::recursive_mutex::scoped_lock lk(ds);
                     write(client_list);
                 }
@@ -120,7 +118,6 @@ static std::vector <client_ptr> clients;
 
 
 void communication_with_server() {
-    std::vector<client>::iterator it;
     while (true) {
         boost::this_thread::sleep(boost::posix_time::millisec(1));
         boost::recursive_mutex::scoped_lock lk(cs);
@@ -146,7 +143,7 @@ void access_func() {
     }
 }
 
-int main(int argc, char *argv[]) {
+int main() {
     boost::thread first(access_func);
     boost::thread second(communication_with_server);
     first.join();
