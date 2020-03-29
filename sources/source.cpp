@@ -63,7 +63,7 @@ struct client {
             if (_request == "list\n\r\n") {
                 std::string list;
                 boost::recursive_mutex::scoped_lock lk(ds);
-                for (int64_t i = 0; i < client_list.size(); ++i) {
+                for (std::size_t i = 0; i < client_list.size(); ++i) {
                     list += client_list[i];
                 }
                 write_reply(list);
