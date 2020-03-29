@@ -56,8 +56,7 @@ struct client {
             if (_clients_num != client_list.size()) {
                 write_reply("changed\n");
                 _clients_num = client_list.size();
-            }
-            else {
+            } else {
                 ping();
             }
         } else {
@@ -97,7 +96,6 @@ struct client {
             BOOST_LOG_TRIVIAL(error) << _name;
         }
     }
-
 };
 
 typedef boost::shared_ptr<client> client_ptr;
@@ -121,7 +119,7 @@ void communication_with_server() {
         for (auto &a: clients) {
             a->communicate();
         }
-        for (auto i = clients.begin(); i != clients.end();) {
+        for (auto i = clients.begin(); i != clients.end(); ) {
             if (!(i->get()->_status)) {
                 i = clients.erase(i);
             } else {
