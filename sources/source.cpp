@@ -116,7 +116,7 @@ void communication_with_server() {
     while (true) {
         boost::this_thread::sleep(boost::posix_time::millisec(1));
         boost::recursive_mutex::scoped_lock lk(cs);
-        for (auto &a: clients) {
+        for (auto &a : clients) {
             a->communicate();
         }
         for (auto i = clients.begin(); i != clients.end(); ) {
