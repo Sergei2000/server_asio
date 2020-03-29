@@ -20,7 +20,7 @@ struct client {
             {service};
     bool _status = true;
     bool _initial = true;
-    int _clients_num = 0;
+    unsigned long _clients_num = 0;
     std::string _name, _request;
 
     void read_request() {
@@ -63,7 +63,7 @@ struct client {
             if (_request == "list\n\r\n") {
                 std::string list;
                 boost::recursive_mutex::scoped_lock lk(ds);
-                for (int i = 0; i < client_list.size(); ++i) {
+                for (unsigned long i = 0; i < client_list.size(); ++i) {
                     list += client_list[i];
                 }
                 write_reply(list);
