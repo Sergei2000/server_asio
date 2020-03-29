@@ -8,118 +8,117 @@
 #include <boost/thread/recursive_mutex.hpp>
 #include <system_error>
 
-
-static boost::thread_group threads;
+//using namespace boost::asio;
 static boost::asio::io_service service;
-static boost::asio::ip::tcp::acceptor
-acceptor{service, boost::asio::ip::tcp::endpoint
-{boost::asio::ip::tcp::v4(), 8001}};
-typedef boost::shared_ptr <boost::asio::ip::tcp::socket>
-socket_ptr;
-static std::vector <socket_ptr> sockets;
-static boost::mutex mutex1, mutex_socket, mutex_clients;
-static boost::recursive_mutex mutex;
-static std::vector<int> num_close;
+static boost::asio::ip::tcp::acceptor acceptor
+        {service, boost::asio::ip::tcp::endpoint
+        {boost::asio::ip::tcp::v4(), 8001}};
 boost::recursive_mutex cs, ds;
-
-
+static std::vector<std::string> client_list;
 struct client {
-    boost::asio::ip::tcp::socket _sock{service};
+    boost::asio::ip::tcp::socket _sock
+            {service};
     bool _status = true;
     bool _initial = true;
-    char buf[200];
-    std::string client_list = "client list: ";
-    void clear_buf(char *buff, int size) {
-        for (int i = 0; i < size; ++i) {
-            buff[i] = '0';
-        }
+    int _clients_num = 0;
+    std::string _name, _request;
+
+    void read_request() {
+        boost::asio::streambuf buffer{};
+        read_until(_sock, buffer, "\n");
+        std::string request((std::istreambuf_iterator<char>(&buffer)),
+        std::istreambuf_iterator<char>());
+        _request = request;
     }
 
-    void write(std::string msg) {
-        int a = msg.size();
-        _sock.write_some(boost::asio::buffer(&a, 4));
-        _sock.write_some(boost::asio::buffer(msg, a));
+    void write_reply(std::string reply) {
+        reply += "\r\n";
+        _sock.write_some(boost::asio::buffer(reply));
     }
 
-    std::string _reply, _name;
-
-    void read_str() {
-        if (_sock.available()) {
-            int counter;
-            clear_buf(buf, 40);
-            _sock.read_some(boost::asio::buffer(&counter, 4));
-            _sock.read_some(boost::asio::buffer(buf, counter));
-            _reply = std::string(buf);
-            _reply = _reply.substr(0, static_cast<int>(_reply.find('0')));
-            clear_buf(buf, 40);
-        }
+    void reply_name() {
+        read_request();
+        _name = _request;
+        write_reply(_name);
+        BOOST_LOG_TRIVIAL(info) << _name;
+        boost::recursive_mutex::scoped_lock lk(ds);
+        client_list.push_back(_name);
     }
 
     void ping() {
-        write("ping_ok\n");
+        write_reply("ping_ok\n");
+    }
+
+    void analyse_request() {
+        read_request();
+        if (_request == "ping\n\r\n") {
+            boost::recursive_mutex::scoped_lock lk(ds);
+            if (_clients_num != client_list.size()) {
+                write_reply("changed\n");
+                _clients_num = client_list.size();
+            }
+            else {
+                ping();
+            }
+        } else {
+            if (_request == "list\n\r\n") {
+                std::string list;
+                boost::recursive_mutex::scoped_lock lk(ds);
+                for (int i = 0; i < client_list.size(); ++i) {
+                    list += client_list[i];
+                }
+                write_reply(list);
+            } else {
+                ping();
+            }
+        }
     }
 
     void communicate() {
         try {
-            alarm(10);
             if (_initial) {
-                read_str();
-                boost::recursive_mutex::scoped_lock lk(ds);
-                _name = _reply;
-                if (_name.find("ping\n") != std::string::npos) {
-                    _name = _name.substr(0, _name.find("ping\n"));
-                }
-                if (_name.find("client list\n") != std::string::npos) {
-                    _name = _name.substr(0, _name.find("client list\n"));
-                }
-                if (client_list.find(_name) == std::string::npos) {
-                    client_list += (" " + _name + " ");
-                }
-                BOOST_LOG_TRIVIAL(info) << _name;
+                reply_name();
                 _initial = false;
             }
-            clear_buf(buf, 40);
-            read_str();
-            if (_reply == "ping\n") {
-                ping();
-            } else {
-                if (_reply.find("client list\n") != std::string::npos) {
-                    boost::recursive_mutex::scoped_lock lk(ds);
-                    write(client_list);
-                }
-            }
-            alarm(0);
+            analyse_request();
         }
         catch (...) {
-            if (_sock.available()) {
-                _sock.close();
-            }
             _status = false;
-            fflush(stdout);
-            //std::cout<<"no client"+_name;
-            client_list.erase(client_list.find(_name), _name.size());
+            std::cout << "socket otkinulsya" << std::endl;
+            _sock.close();
+            boost::recursive_mutex::scoped_lock lk(ds);
+            for (auto i = client_list.begin(); i != client_list.end();) {
+                if (i->data() == _name) {
+                    i = client_list.erase(i);
+                } else {
+                    ++i;
+                }
+            }
             BOOST_LOG_TRIVIAL(error) << _name;
-            alarm(0);
         }
     }
 
-    bool disconnected() {
-        return !_status;
-    }
-
-    ~client() { _sock.close(); }
 };
 
+typedef boost::shared_ptr<client> client_ptr;
+static std::vector<client_ptr> clients;
 
-typedef boost::shared_ptr <client> client_ptr;
-static std::vector <client_ptr> clients;
-
+void access_func() {
+    fflush(stdout);
+    while (true) {
+        client_ptr one(new client);
+        acceptor.accept(one->_sock);
+        boost::recursive_mutex::scoped_lock lk(cs);
+        clients.push_back(one);
+        //std::cout<<"zakinul"<<std::endl;
+    }
+}
 
 void communication_with_server() {
     while (true) {
         boost::this_thread::sleep(boost::posix_time::millisec(1));
         boost::recursive_mutex::scoped_lock lk(cs);
-        for (auto &a : clients) {
+        for (auto &a: clients) {
             a->communicate();
         }
         for (auto i = clients.begin(); i != clients.end();) {
@@ -132,19 +131,10 @@ void communication_with_server() {
     }
 }
 
-void access_func() {
-    while (true) {
-        client_ptr one(new client);
-        acceptor.accept(one->_sock);
-        boost::recursive_mutex::scoped_lock lk(cs);
-        clients.push_back(one);
-    }
-}
-
 int main() {
     boost::thread first(access_func);
     boost::thread second(communication_with_server);
-    first.join();
     second.join();
+    first.join();
     return 0;
 }
