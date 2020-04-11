@@ -18,6 +18,7 @@ static std::vector<std::string> client_list;
 struct client {
     boost::asio::ip::tcp::socket _sock
             {service};
+    boost::posix_time::ptime now;
     bool _status = true;
     bool _initial = true;
     uint64_t _clients_num = 0;
@@ -79,7 +80,13 @@ struct client {
                 reply_name();
                 _initial = false;
             }
+            now= boost::posix_time::microsec_clock::local_time();
             analyse_request();
+             boost::posix_time::ptime finish;
+            finish=boost::posix_time::microsec_clock::local_time();
+            if ((finish-now).total_milliseconds()>20){
+                throw -1;
+            }
         }
         catch (...) {
             _status = false;
