@@ -80,11 +80,11 @@ struct client {
                 reply_name();
                 _initial = false;
             }
-            now= boost::posix_time::microsec_clock::local_time();
+            now = boost::posix_time::microsec_clock::local_time();
             analyse_request();
              boost::posix_time::ptime finish;
-            finish=boost::posix_time::microsec_clock::local_time();
-            if ((finish-now).total_milliseconds()>20){
+            finish = boost::posix_time::microsec_clock::local_time();
+            if ((finish-now).total_milliseconds() > 20){
                 throw -1;
             }
         }
